@@ -1,5 +1,7 @@
 # Django Playground
 
+[https://massover.github.io/django-playground/](https://massover.github.io/django-playground/)
+
 <p>Django Playground runs your python code client side directly in your browser using <a href="https://pyscript.net/">pyscript</a>. There is no server.</p>
 
 <p>When this website is launched in your browser, it runs some initialization code in your browser to:</p>
