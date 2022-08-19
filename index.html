@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta content="text/html; charset=utf-8" http-equiv="content-type">
+  <title>Django Playground</title>
+  <meta content="width=device-width, initial-scale=1" name="viewport">
+<style>
+</style>
+
+<script defer src="https://pyscript.net/unstable/pyscript.js"></script>
+<link rel="stylesheet" href="https://pyscript.net/unstable/pyscript.css" />
+
+<style>
+    body {
+    margin: 40px auto;
+    max-width:650px;
+    line-height:1.6;
+    font-size:18px;
+    color:#444;
+    padding:0 10px
+}
+h1, h2{
+    line-height:1.2
+}
+</style>
+<py-env style="display: none;">
+    - django
+</py-env>
+
+</head>
+<body>
+
+    <h1>Django Playground</h1>
+
+    <h2>How This Works</h2>
+    <p>Django Playground runs your python code client side directly in your browser using <a href="https://pyscript.net/">pyscript</a>. There is no server.</p>
+
+    <p>When this website is launched in your browser, it runs some initialization code in your browser to:</p>
+
+    <ul>
+        <li>Create a model
+            <pre>
+            class Dog(models.Model):
+                name = models.TextField()
+            </pre>
+        </li>
+        <li>Configure django to work with an in memory sqlite database in your browser</li>
+        <li>
+            <a href="https://docs.djangoproject.com/en/4.1/ref/django-admin/#cmdoption-migrate-run-syncdb">
+                Migrate with syncdb
+            </a>
+            to create the table in the sqlite database
+        </li>
+    </ul>
+
+    <py-script style="display: none;">
+    import os
+    from types import SimpleNamespace
+
+    import django
+    import sys
+    from django.db import models
+    from django.core.management import call_command
+    from django.conf import settings
+    from django.apps import apps
+    from django.apps import AppConfig
+    from django.core.wsgi import get_wsgi_application
+    from django.utils.crypto import get_random_string
+
+    settings.configure(
+        DEBUG=True,
+        ALLOWED_HOSTS=["*"],
+        ROOT_URLCONF=__name__,
+        SECRET_KEY=get_random_string(50),
+        INSTALLED_APPS=[f"{__name__}.Config"],
+        DATABASES={
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': ':memory:',
+            }
+        },
+        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
+    )
+
+    class Config(AppConfig):
+        name = __name__
+        label = __name__
+
+        # It doesn't have a path at runtime in the browser
+        path = "nopath"
+
+        def import_models(self):
+            # Dictionary of models for this app, primarily maintained in the
+            # 'all_models' attribute of the Apps this AppConfig is attached to.
+            self.models = self.apps.all_models[self.label]
+
+            # This is the actual code that looks for a models_module and loads it
+            # if module_has_submodule(self.module, MODELS_MODULE_NAME):
+            #     models_module_name = "%s.%s" % (self.name, MODELS_MODULE_NAME)
+            #     self.models_module = import_module(models_module_name)
+
+            # This is making a namespace that acts like the models_module without to import it
+            class models_module(SimpleNamespace):
+                class Dog(models.Model):
+                    name = models.TextField()
+
+                    def __str__(self):
+                        return self.name
+
+                    class Meta:
+                        app_label = __name__
+
+            self.models_module = models_module
+
+            # I couldn't figure out a way to declare it globally without
+            # running into an apps not ready initialization race.
+            # We add it to the class here to put it in the global namespace after setup.
+            Config.Dog = models_module.Dog
+
+    django.setup()
+
+    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+    call_command("migrate", run_syncdb=True, verbosity=0)
+    Dog = Config.Dog
+    dogs = Dog.objects.bulk_create([
+         Dog(name='Bruce'),
+         Dog(name='Mitch'),
+         Dog(name='Daisy'),
+    ])
+    </py-script>
+
+    <h2>Run whatever you want</h2>
+    <p>The data is only running in memory in your browser. If you destroy the database, refresh the page.</p>
+    <py-repl auto-generate="true">Dog.objects.all().delete()</py-repl>
+
+</body>
+</html>
