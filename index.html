@@ -23,9 +23,10 @@ h1, h2{
     line-height:1.2
 }
 </style>
-<py-env style="display: none;">
-    - django
-</py-env>
+<py-config>
+  packages = ["django", "sqlite3"]
+</py-config>
+
 
 </head>
 <body>
@@ -63,13 +64,10 @@ h1, h2{
     from types import SimpleNamespace
 
     import django
-    import sys
     from django.db import models
     from django.core.management import call_command
     from django.conf import settings
-    from django.apps import apps
     from django.apps import AppConfig
-    from django.core.wsgi import get_wsgi_application
     from django.utils.crypto import get_random_string
 
     settings.configure(
@@ -86,6 +84,8 @@ h1, h2{
         },
         DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
     )
+
+    registry = []
 
     class Config(AppConfig):
         name = __name__
@@ -105,28 +105,25 @@ h1, h2{
             #     self.models_module = import_module(models_module_name)
 
             # This is making a namespace that acts like the models_module without to import it
-            class models_module(SimpleNamespace):
-                class Dog(models.Model):
-                    name = models.TextField()
+            class Dog(models.Model):
+                name = models.TextField()
 
-                    def __str__(self):
-                        return self.name
+                def __str__(self):
+                    return self.name
 
-                    class Meta:
-                        app_label = __name__
+                class Meta:
+                    app_label = __name__
 
+            models_module = SimpleNamespace(Dog=Dog)
             self.models_module = models_module
+            registry.append(Dog)
 
-            # I couldn't figure out a way to declare it globally without
-            # running into an apps not ready initialization race.
-            # We add it to the class here to put it in the global namespace after setup.
-            Config.Dog = models_module.Dog
 
     django.setup()
 
     os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
     call_command("migrate", run_syncdb=True, verbosity=0)
-    Dog = Config.Dog
+    Dog = registry[0]
     dogs = Dog.objects.bulk_create([
          Dog(name='Bruce'),
          Dog(name='Mitch'),
@@ -136,7 +133,11 @@ h1, h2{
 
     <h2>Run whatever you want</h2>
     <p>The data is only running in memory in your browser. If you destroy the database, refresh the page.</p>
-    <py-repl>Dog.objects.all().delete()</py-repl>
+    <py-repl>
+        from django.apps import apps
+        Dog = apps.get_models()[0]
+        Dog.objects.all().delete()
+    </py-repl>
 
     <footer>
         <p>
