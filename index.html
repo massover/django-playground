@@ -7,9 +7,28 @@
 <style>
 </style>
 
-<script defer src="https://pyscript.net/unstable/pyscript.js"></script>
-<link rel="stylesheet" href="https://pyscript.net/unstable/pyscript.css" />
+<link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
 
+<script>
+function pollForRepl(elementId, intervalTime) {
+  const interval = setInterval(() => {
+    const element = document.querySelector('py-repl .cm-content');
+    if (element) {
+      clearInterval(interval);
+      pyReplContent = document.querySelector('py-repl .cm-content')
+      lastChild = pyReplContent.lastElementChild
+      pyReplContent.replaceChildren(lastChild)
+      const defaultCode = "from blog.models import Author\nAuthor.objects.all()"
+      const urlParams = new URLSearchParams(window.location.search);
+      lastChild.textContent = urlParams.get('code') || defaultCode;
+    }
+  }, intervalTime);
+}
+pollForRepl('py-repl', 500)
+
+</script>
+
+<script defer src="https://pyscript.net/latest/pyscript.js"></script>
 <style>
 body {
     margin: 40px auto;
@@ -25,6 +44,8 @@ h1, h2{
 </style>
 <py-config>
   packages = ["django", "sqlite3"]
+  [[fetch]]
+  files = ["./blog/__init__.py", "./blog/models.py"]
 </py-config>
 
 
@@ -38,16 +59,13 @@ h1, h2{
         Django Playground runs your python code client side directly in your browser using <a href="https://pyscript.net/">pyscript</a>.
         There is no server.
     </p>
+    <p>
+        See the <a href="https://github.com/massover/django-playground">code</a>
+    </p>
 
     <p>When this website is launched in your browser, it runs some initialization code in your browser to:</p>
 
     <ul>
-        <li>Create a model
-            <pre>
-            class Dog(models.Model):
-                name = models.TextField()
-            </pre>
-        </li>
         <li>Configure django to work with an in memory sqlite database in your browser</li>
         <li>
             <a href="https://docs.djangoproject.com/en/4.1/ref/django-admin/#cmdoption-migrate-run-syncdb">
@@ -58,93 +76,17 @@ h1, h2{
     </ul>
 
 
-
     <py-script style="display: none;">
-    import os
-    from types import SimpleNamespace
-
-    import django
-    from django.db import models
-    from django.core.management import call_command
-    from django.conf import settings
-    from django.apps import AppConfig
-    from django.utils.crypto import get_random_string
-
-    settings.configure(
-        DEBUG=True,
-        ALLOWED_HOSTS=["*"],
-        ROOT_URLCONF=__name__,
-        SECRET_KEY=get_random_string(50),
-        INSTALLED_APPS=[f"{__name__}.Config"],
-        DATABASES={
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': ':memory:',
-            }
-        },
-        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
-    )
-
-    registry = []
-
-    class Config(AppConfig):
-        name = __name__
-        label = __name__
-
-        # It doesn't have a path at runtime in the browser
-        path = "nopath"
-
-        def import_models(self):
-            # Dictionary of models for this app, primarily maintained in the
-            # 'all_models' attribute of the Apps this AppConfig is attached to.
-            self.models = self.apps.all_models[self.label]
-
-            # This is the actual code that looks for a models_module and loads it
-            # if module_has_submodule(self.module, MODELS_MODULE_NAME):
-            #     models_module_name = "%s.%s" % (self.name, MODELS_MODULE_NAME)
-            #     self.models_module = import_module(models_module_name)
-
-            # This is making a namespace that acts like the models_module without to import it
-            class Dog(models.Model):
-                name = models.TextField()
-
-                def __str__(self):
-                    return self.name
-
-                class Meta:
-                    app_label = __name__
-
-            models_module = SimpleNamespace(Dog=Dog)
-            self.models_module = models_module
-            registry.append(Dog)
-
-
-    django.setup()
-
-    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-    call_command("migrate", run_syncdb=True, verbosity=0)
-    Dog = registry[0]
-    dogs = Dog.objects.bulk_create([
-         Dog(name='Bruce'),
-         Dog(name='Mitch'),
-         Dog(name='Daisy'),
-    ])
+            import blog
+            blog.init()
     </py-script>
 
     <h2>Run whatever you want</h2>
     <p>The data is only running in memory in your browser. If you destroy the database, refresh the page.</p>
-    <py-repl>
-        from django.apps import apps
-        Dog = apps.get_models()[0]
-        Dog.objects.all().delete()
+    <py-repl auto-generate="true">
     </py-repl>
 
-    <footer>
-        <p>
-            <hr>
-            See the <a href="https://github.com/massover/django-playground">code</a>
-        </p>
-    </div>
+
 
 
 </body>
